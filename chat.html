@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChatVibe</title>
+  <meta name="description" content="ChatVibe — Real-time messaging, audio and video calls.">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+</head>
+<body>
+
+  <div class="chat-app" id="chatApp">
+
+    <!-- ════════ SIDEBAR ════════ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="user-row">
+          <div class="user-info">
+            <div class="user-avatar" id="myAvatar"></div>
+            <div>
+              <div class="user-name" id="myName">Loading...</div>
+              <div class="user-status">● Online</div>
+            </div>
+          </div>
+          <button class="btn-logout" onclick="logoutUser()" title="Sign out">🚪 Logout</button>
+        </div>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchContacts" placeholder="Search contacts...">
+        </div>
+      </div>
+
+      <div class="contacts-list" id="contactsList">
+        <div class="contacts-empty">Loading contacts...</div>
+      </div>
+    </aside>
+
+    <!-- ════════ MAIN CHAT ════════ -->
+    <main class="chat-main" id="chatMain">
+
+      <!-- No chat selected -->
+      <div class="no-chat" id="noChat">
+        <div class="no-chat-icon">💬</div>
+        <h3>Welcome to ChatVibe</h3>
+        <p>Select a contact to start chatting, share files, and make audio or video calls.</p>
+      </div>
+
+      <!-- Chat header (hidden until chat selected) -->
+      <div class="chat-header hidden" id="chatHeader">
+        <button class="back-btn" id="backBtn" title="Back to contacts">◀</button>
+        <div class="header-avatar" id="chatAvatar"></div>
+        <div class="header-info">
+          <div class="header-name" id="chatName"></div>
+          <div class="header-status" id="chatStatus">Offline</div>
+        </div>
+        <div class="header-actions">
+          <button id="audioCallBtn" title="Audio call">📞</button>
+          <button id="videoCallBtn" title="Video call">📹</button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages-area hidden" id="messagesArea">
+        <div class="typing-indicator" id="typingIndicator">
+          <div class="typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message input -->
+      <div class="message-input-area hidden" id="messageInputArea">
+        <div class="file-preview-strip" id="filePreviewStrip"></div>
+        <div class="upload-progress" id="uploadProgress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="input-row">
+          <div class="input-actions">
+            <button id="attachBtn" title="Attach file">📎</button>
+            <button id="cameraBtn" title="Take photo">📷</button>
+          </div>
+          <div class="msg-input-wrapper">
+            <textarea
+              id="messageInput"
+              placeholder="Type a message..."
+              rows="1"
+              maxlength="5000"
+            ></textarea>
+          </div>
+          <button class="btn-send" id="sendBtn" title="Send">➤</button>
+        </div>
+        <input type="file" id="fileInput" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt" class="sr-only">
+        <input type="file" id="cameraInput" capture="environment" accept="image/*" class="sr-only">
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ════════ CALL OVERLAY ════════ -->
+  <div class="call-overlay" id="callOverlay">
+    <div class="call-info" id="callInfo">
+      <div class="call-avatar ringing" id="callAvatar"></div>
+      <div class="call-name" id="callName"></div>
+      <div class="call-status-text" id="callStatusText">Calling...</div>
+      <div class="call-timer" id="callTimer"></div>
+    </div>
+    <div class="call-controls" id="callControls">
+      <button class="call-btn" id="toggleMuteBtn" title="Toggle mute">🎙️</button>
+      <button class="call-btn" id="toggleCamBtn" title="Toggle camera">📷</button>
+      <button class="call-btn end-call" id="endCallBtn" title="End call">📕</button>
+    </div>
+  </div>
+
+  <!-- Video container -->
+  <div class="video-container" id="videoContainer">
+    <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+    <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+    <div class="call-controls" id="videoCallControls">
+      <button class="call-btn" id="vToggleMuteBtn" title="Toggle mute">🎙️</button>
+      <button class="call-btn" id="vToggleCamBtn" title="Toggle camera">📷</button>
+      <button class="call-btn end-call" id="vEndCallBtn" title="End call">📕</button>
+    </div>
+  </div>
+
+  <!-- Incoming call popup -->
+  <div class="incoming-call" id="incomingCall">
+    <div class="caller-info">
+      <div class="caller-avatar" id="callerAvatar"></div>
+      <div>
+        <div class="caller-name" id="callerName"></div>
+        <div class="caller-type" id="callerType">Incoming audio call...</div>
+      </div>
+    </div>
+    <div class="call-actions">
+      <button class="decline-btn" id="declineCallBtn" title="Decline">📕</button>
+      <button class="accept-btn" id="acceptCallBtn" title="Accept">📞</button>
+    </div>
+  </div>
+
+  <!-- Image lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="close-btn" id="closeLightbox">✕</button>
+    <img id="lightboxImg" src="" alt="Full size image">
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+  <!-- App scripts -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/file-upload.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/calls.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

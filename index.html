@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatVibe — Sign In</title>
+  <meta name="description" content="ChatVibe — Real-time messaging, audio and video calls. Stay connected.">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+</head>
+<body>
+
+  <!-- Animated background -->
+  <div class="login-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="login-wrapper">
+    <div class="login-card">
+      <!-- Logo -->
+      <div class="login-logo">
+        <div class="icon">💬</div>
+        <h1>ChatVibe</h1>
+        <p>Sign in to start chatting</p>
+      </div>
+
+      <!-- Form -->
+      <form id="loginForm" autocomplete="off">
+        <div class="form-group">
+          <label for="phoneInput">Phone Number</label>
+          <div class="input-wrapper">
+            <span class="input-icon">📱</span>
+            <input
+              type="text"
+              id="phoneInput"
+              placeholder="Enter your phone number"
+              autocomplete="username"
+              required
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="passwordInput">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              id="passwordInput"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required
+            >
+            <button type="button" class="password-toggle" id="togglePassword" aria-label="Toggle password visibility">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="loginBtn">
+          <span class="btn-text">Sign In</span>
+          <div class="spinner"></div>
+        </button>
+      </form>
+
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/auth.js"></script>
+
+</body>
+</html>

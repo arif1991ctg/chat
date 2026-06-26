@@ -1,0 +1,10 @@
+{
+  "name": "live-chat-app",
+  "version": "1.0.0",
+  "description": "Real-time chat app with audio/video calls, file sharing — Firebase + Vercel",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "start": "npx serve ."
+  }
+}
