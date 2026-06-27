@@ -106,9 +106,6 @@ exports.sendMessageNotification = functions.firestore
             notification: {
               tag: chatId,
               renotify: true
-            },
-            fcmOptions: {
-              link: `/chat.html?chatId=${encodeURIComponent(chatId)}`
             }
           }
         });
