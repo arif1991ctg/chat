@@ -102,6 +102,20 @@
       logEl.scrollTop = logEl.scrollHeight;
     }
 
+    async function cleanDuplicateProfiles(phone, activeUid) {
+      try {
+        const snapshot = await db.collection('users').where('phoneNumber', '==', phone).get();
+        for (const doc of snapshot.docs) {
+          if (doc.id !== activeUid) {
+            await db.collection('users').doc(doc.id).delete();
+            log(`🗑 Removed stale duplicate profile: ${doc.id}`, 'info');
+          }
+        }
+      } catch (e) {
+        log(`✗ Stale profile cleanup failed: ${e.message}`, 'error');
+      }
+    }
+
     async function runSetup() {
       const btn = document.getElementById('setupBtn');
       btn.disabled = true;
@@ -129,6 +143,9 @@
           });
           log(`✓ Firestore profile created for ${u.phone}`, 'success');
 
+          // Clean duplicate profiles
+          await cleanDuplicateProfiles(u.phone, cred.user.uid);
+
           // Sign out so we can create the next user
           await auth.signOut();
 
@@ -148,6 +165,10 @@
                 lastSeen: firebase.firestore.FieldValue.serverTimestamp()
               }, { merge: true });
               log(`✓ Firestore profile verified for ${u.phone}`, 'success');
+
+              // Clean duplicate profiles
+              await cleanDuplicateProfiles(u.phone, cred.user.uid);
+
               await auth.signOut();
             } catch (e) {
               log(`✗ Could not verify profile: ${e.message}`, 'error');

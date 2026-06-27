@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isParticipant(chatId) {
+      return isAuthenticated() && 
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    // ── USERS COLLECTION ──
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isUser(userId);
+    }
+    
+    // ── CHATS COLLECTION ──
+    match /chats/{chatId} {
+      // Allow read/create if you are a participant
+      allow read: if isAuthenticated() && (resource == null || request.auth.uid in resource.data.participants);
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+      // Allow update if you are a participant (for lastMessage updates, mute, pin, wallpaper, etc.)
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow delete: if false; // Chats cannot be deleted completely
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isParticipant(chatId);
+        
+        // Creating a message
+        allow create: if isParticipant(chatId) 
+          && request.resource.data.senderId == request.auth.uid
+          && (request.resource.data.text is string || request.resource.data.fileUrl is string);
+        
+        // Updating a message (for reactions, editing, delete for everyone, seen status)
+        allow update: if isParticipant(chatId) 
+          && (
+            // Anyone can update seen status, reactions, or delete for me
+            request.resource.data.seenBy != resource.data.seenBy ||
+            request.resource.data.deliveredTo != resource.data.deliveredTo ||
+            request.resource.data.reactions != resource.data.reactions ||
+            request.resource.data.deletedBy != resource.data.deletedBy ||
+            // Only original sender can edit or delete for everyone
+            (resource.data.senderId == request.auth.uid && (
+              request.resource.data.text != resource.data.text ||
+              request.resource.data.deleted == true
+            ))
+          );
+          
+        allow delete: if false; // We delete by marking as deleted, or deleteForMe using a flag
+      }
+
+      // Typing status subcollection
+      match /typing/{userId} {
+        allow read: if isParticipant(chatId);
+        allow write: if isAuthenticated() && isUser(userId);
+      }
+    }
+
+    // ── CALLS COLLECTION ──
+    match /calls/{callId} {
+      allow read, write: if isAuthenticated() && (
+        resource == null || 
+        request.auth.uid == resource.data.callerId || 
+        request.auth.uid == resource.data.receiverId ||
+        request.auth.uid == request.resource.data.callerId || 
+        request.auth.uid == request.resource.data.receiverId
+      );
+      
+      match /{subcollection}/{docId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+  }
+}

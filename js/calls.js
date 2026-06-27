@@ -7,6 +7,9 @@
 (function () {
   'use strict';
 
+  const getCurrentUser = () => window.getCurrentUser ? window.getCurrentUser() : null;
+  const showToast = (msg, type) => window.showToast ? window.showToast(msg, type) : console.log(msg);
+
   // ── WebRTC Configuration ──
   const rtcConfig = {
     iceServers: [
@@ -72,6 +75,7 @@
 
       // Show call UI
       showCallUI(contact, type, 'Calling...');
+      startRingtone(false); // Play outgoing call sound
 
       if (type === 'video') {
         document.getElementById('localVideo').srcObject = localStream;
@@ -192,18 +196,19 @@
       callData.type === 'video' ? 'Incoming video call...' : 'Incoming audio call...';
 
     incomingEl.classList.add('show');
-
-    // Play ringtone-like visual pulse (no actual audio to avoid autoplay issues)
+    startRingtone(true); // Play incoming ringtone
 
     // Accept button
     document.getElementById('acceptCallBtn').onclick = () => {
       incomingEl.classList.remove('show');
+      stopRingtone();
       acceptCall(callData);
     };
 
     // Decline button
     document.getElementById('declineCallBtn').onclick = () => {
       incomingEl.classList.remove('show');
+      stopRingtone();
       db.collection('calls').doc(callData.id).update({ status: 'declined' });
     };
 
@@ -217,6 +222,7 @@
   async function acceptCall(callData) {
     callType = callData.type;
     isCaller = false;
+    stopRingtone();
 
     try {
       const constraints = {
@@ -315,6 +321,7 @@
   // ── Call connected ──
   function onCallConnected(contact, type) {
     callStartTime = Date.now();
+    stopRingtone();
 
     document.getElementById('callStatusText').textContent = 'Connected';
     document.getElementById('callAvatar').classList.remove('ringing');
@@ -359,6 +366,7 @@
   };
 
   function endCallCleanup() {
+    stopRingtone();
     // Stop media tracks
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
@@ -440,6 +448,93 @@
         btn.classList.toggle('active', off);
       }
     });
+  }
+
+  // ── Web Audio API Ringtone Synth ──
+  let audioCtx = null;
+  let ringtoneInterval = null;
+
+  function startRingtone(isIncoming) {
+    try {
+      if (audioCtx) stopRingtone();
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      let isPlaying = false;
+      ringtoneInterval = setInterval(() => {
+        if (isPlaying) return;
+        isPlaying = true;
+        
+        if (isIncoming) {
+          playIncomingSound();
+          setTimeout(() => { isPlaying = false; }, 2000);
+        } else {
+          playOutgoingSound();
+          setTimeout(() => { isPlaying = false; }, 3000);
+        }
+      }, 500);
+    } catch (e) {
+      console.warn('[Call] Could not start ringtone:', e);
+    }
+  }
+
+  function playIncomingSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const notes = [880, 1100, 1320, 880, 1100, 1320];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+      gain.gain.setValueAtTime(0, now + idx * 0.15);
+      gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.15 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.15 + 0.13);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now + idx * 0.15);
+      osc.stop(now + idx * 0.15 + 0.14);
+    });
+  }
+
+  function playOutgoingSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(440, now);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(480, now);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.1);
+    gain.gain.setValueAtTime(0.1, now + 1.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+    
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 1.5);
+    osc2.stop(now + 1.5);
+  }
+
+  function stopRingtone() {
+    if (ringtoneInterval) {
+      clearInterval(ringtoneInterval);
+      ringtoneInterval = null;
+    }
+    if (audioCtx) {
+      try {
+        audioCtx.close();
+      } catch (e) {}
+      audioCtx = null;
+    }
   }
 
 })();

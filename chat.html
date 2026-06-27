@@ -2,38 +2,272 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ChatVibe</title>
-  <meta name="description" content="ChatVibe — Real-time messaging, audio and video calls.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ChatVibe — Enterprise</title>
+  <meta name="description" content="ChatVibe — Premium real-time messaging, group chats, audio/video calls, and file sharing.">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
 </head>
-<body>
+<body data-theme="dark">
+
+  <!-- Offline banner indicator -->
+  <div class="offline-banner" id="offlineBanner" aria-live="polite">
+    ⚠️ Connection lost. Working in offline mode. Messages will be queued and retried automatically.
+  </div>
 
   <div class="chat-app" id="chatApp">
 
     <!-- ════════ SIDEBAR ════════ -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="user-row">
-          <div class="user-info">
-            <div class="user-avatar" id="myAvatar"></div>
-            <div>
-              <div class="user-name" id="myName">Loading...</div>
-              <div class="user-status">● Online</div>
+
+      <!-- MAIN SIDEBAR CONTENT -->
+      <div class="sidebar-main-view" id="sidebarMainView">
+        <div class="sidebar-header">
+          <div class="user-row">
+            <div class="user-info" onclick="openDrawer('profileDrawer')" title="Edit profile" style="cursor: pointer;">
+              <div class="user-avatar" id="myAvatar"></div>
+              <div>
+                <div class="user-name" id="myName">Loading...</div>
+                <div class="user-status" id="myPresenceStatus">● Active Now</div>
+              </div>
+            </div>
+            <div class="header-nav-buttons">
+              <button id="btnNewGroup" onclick="openDrawer('groupDrawer')" title="New Group" aria-label="Create group chat">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path><path d="M21 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path><circle cx="13" cy="7" r="4"></circle></svg>
+              </button>
+              <button id="btnStarred" onclick="openDrawer('starredDrawer')" title="Starred Messages" aria-label="Starred messages">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              </button>
+              <button id="btnSettings" onclick="openDrawer('settingsDrawer')" title="Settings" aria-label="Settings">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              </button>
+              <button id="btnSettings" onclick="openDrawer('analyticsDrawer')" title="Analytics" aria-label="Analytics Dashboard">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              </button>
+              <button class="btn-logout" onclick="logoutUser()" title="Sign out" aria-label="Sign out">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              </button>
             </div>
           </div>
-          <button class="btn-logout" onclick="logoutUser()" title="Sign out">🚪 Logout</button>
+
+          <!-- Filter Tabs -->
+          <div class="sidebar-tabs">
+            <button class="tab-btn active" id="tabAllChats" onclick="switchChatFilter('all')">All</button>
+            <button class="tab-btn" id="tabGroups" onclick="switchChatFilter('groups')">Groups</button>
+            <button class="tab-btn" id="tabArchived" onclick="switchChatFilter('archived')">Archived</button>
+            <button class="tab-btn" id="tabFavorites" onclick="switchChatFilter('favorites')">Favorites</button>
+          </div>
+
+          <div class="search-box">
+            <span class="search-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+            <input type="text" id="searchContacts" placeholder="Search chats, contacts, or usernames...">
+          </div>
         </div>
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="searchContacts" placeholder="Search contacts...">
+
+        <div class="contacts-list" id="contactsList">
+          <!-- Skeleton Loading placeholder -->
+          <div class="skeleton-list" id="contactsSkeleton">
+            <div class="skeleton-item"><div class="skeleton-circle"></div><div class="skeleton-lines"><div class="skeleton-line-1"></div><div class="skeleton-line-2"></div></div></div>
+            <div class="skeleton-item"><div class="skeleton-circle"></div><div class="skeleton-lines"><div class="skeleton-line-1"></div><div class="skeleton-line-2"></div></div></div>
+            <div class="skeleton-item"><div class="skeleton-circle"></div><div class="skeleton-lines"><div class="skeleton-line-1"></div><div class="skeleton-line-2"></div></div></div>
+          </div>
+          <div class="contacts-empty hidden" id="contactsEmpty">No contacts found</div>
         </div>
       </div>
 
-      <div class="contacts-list" id="contactsList">
-        <div class="contacts-empty">Loading contacts...</div>
+      <!-- ── PROFILE DRAWER ── -->
+      <div class="sidebar-drawer" id="profileDrawer">
+        <div class="drawer-header">
+          <button class="drawer-close-btn" onclick="closeDrawer('profileDrawer')" aria-label="Back">◀</button>
+          <h3>Profile & Privacy</h3>
+        </div>
+        <div class="drawer-content">
+          <div class="cover-photo-container">
+            <img id="myCoverPhoto" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='40'><rect width='100' height='40' fill='%23667eea'/></svg>" alt="Cover Photo">
+            <button class="edit-cover-btn" onclick="document.getElementById('coverPhotoInput').click()" title="Edit cover">📷</button>
+            <input type="file" id="coverPhotoInput" accept="image/*" class="sr-only">
+          </div>
+          <div class="profile-pic-container">
+            <div class="avatar-edit-wrapper">
+              <div class="drawer-avatar" id="myDrawerAvatar">?</div>
+              <button class="edit-avatar-btn" onclick="document.getElementById('avatarPhotoInput').click()" title="Edit photo">📷</button>
+              <input type="file" id="avatarPhotoInput" accept="image/*" class="sr-only">
+            </div>
+          </div>
+          <div class="form-group-profile">
+            <label for="profileDisplayName">Display Name</label>
+            <input type="text" id="profileDisplayName" placeholder="Enter name">
+          </div>
+          <div class="form-group-profile">
+            <label for="profileUsername">Username</label>
+            <input type="text" id="profileUsername" placeholder="e.g. @username">
+          </div>
+          <div class="form-group-profile">
+            <label for="profileBio">Bio</label>
+            <textarea id="profileBio" rows="3" placeholder="Tell us about yourself..."></textarea>
+          </div>
+          <div class="privacy-section">
+            <h4>Privacy Settings</h4>
+            <label class="checkbox-label">
+              <input type="checkbox" id="privacyHideLastSeen"> Hide Last Seen / Status
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="privacyHideReadReceipts"> Hide Read Receipts (Seen Ticks)
+            </label>
+            <button class="btn-block-list" onclick="openDrawer('blockedListDrawer')">🚫 Blocked Users List</button>
+          </div>
+          <button class="btn-save-profile" id="saveProfileBtn" onclick="saveUserProfile()">Save Changes</button>
+        </div>
       </div>
+
+      <!-- ── BLOCKED LIST DRAWER ── -->
+      <div class="sidebar-drawer" id="blockedListDrawer">
+        <div class="drawer-header">
+          <button class="drawer-close-btn" onclick="closeDrawer('blockedListDrawer')" aria-label="Back">◀</button>
+          <h3>Blocked Users</h3>
+        </div>
+        <div class="drawer-content">
+          <div id="blockedUsersList" class="blocked-users-list">
+            <div class="empty-text">No blocked users</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── NEW GROUP DRAWER ── -->
+      <div class="sidebar-drawer" id="groupDrawer">
+        <div class="drawer-header">
+          <button class="drawer-close-btn" onclick="closeDrawer('groupDrawer')" aria-label="Back">◀</button>
+          <h3>Create Group Chat</h3>
+        </div>
+        <div class="drawer-content">
+          <div class="group-photo-wrapper" onclick="document.getElementById('groupPhotoInput').click()">
+            <div class="group-photo-placeholder" id="groupPhotoPreview">👥</div>
+            <div class="edit-overlay">📷</div>
+            <input type="file" id="groupPhotoInput" accept="image/*" class="sr-only">
+          </div>
+          <div class="form-group-profile">
+            <label for="groupNameInput">Group Name</label>
+            <input type="text" id="groupNameInput" placeholder="Group Name">
+          </div>
+          <div class="form-group-profile">
+            <label for="groupDescInput">Description</label>
+            <input type="text" id="groupDescInput" placeholder="Group purpose, rules etc.">
+          </div>
+          <div class="participant-selector-section">
+            <h4>Select Participants</h4>
+            <div id="groupParticipantList" class="participant-selector-list">
+              <!-- Render contacts with checkboxes dynamically -->
+            </div>
+          </div>
+          <button class="btn-save-profile" id="createGroupBtn" onclick="createGroupChat()">Create Group</button>
+        </div>
+      </div>
+
+      <!-- ── STARRED MESSAGES DRAWER ── -->
+      <div class="sidebar-drawer" id="starredDrawer">
+        <div class="drawer-header">
+          <button class="drawer-close-btn" onclick="closeDrawer('starredDrawer')" aria-label="Back">◀</button>
+          <h3>Starred Messages</h3>
+        </div>
+        <div class="drawer-content starred-content" id="starredMessagesList">
+          <div class="empty-text">No starred messages yet</div>
+        </div>
+      </div>
+
+      <!-- ── SETTINGS & COMPATIBILITY DRAWER ── -->
+      <div class="sidebar-drawer" id="settingsDrawer">
+        <div class="drawer-header">
+          <button class="drawer-close-btn" onclick="closeDrawer('settingsDrawer')" aria-label="Back">◀</button>
+          <h3>Settings</h3>
+        </div>
+        <div class="drawer-content">
+          <!-- Dark Mode Switch -->
+          <div class="setting-item-row">
+            <div>
+              <div class="setting-title">Theme Preference</div>
+              <div class="setting-subtitle">Switch between light and dark backgrounds</div>
+            </div>
+            <select id="themeSelector" class="settings-select" onchange="changeThemePreference(this.value)">
+              <option value="dark">Dark Mode</option>
+              <option value="light">Light Mode</option>
+              <option value="blue">Cosmic Blue</option>
+            </select>
+          </div>
+
+          <!-- Chat Customizations -->
+          <div class="setting-item-row">
+            <div>
+              <div class="setting-title">Chat Wallpaper</div>
+              <div class="setting-subtitle">Set customized background style</div>
+            </div>
+            <select id="wallpaperSelector" class="settings-select" onchange="changeChatWallpaper(this.value)">
+              <option value="default">Default Pattern</option>
+              <option value="solid-dark">Solid Charcoal</option>
+              <option value="solid-blue">Deep Sea Blue</option>
+              <option value="solid-green">Forest Green</option>
+              <option value="solid-light">Clean Cream</option>
+            </select>
+          </div>
+
+          <!-- Notification Sound -->
+          <div class="setting-item-row">
+            <div>
+              <div class="setting-title">Notification Sound</div>
+              <div class="setting-subtitle">Play alert sound for new messages</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="settingSoundAlert" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <!-- Export & Backup -->
+          <div class="settings-action-section">
+            <h4>Backup & Export</h4>
+            <button class="btn-setting-action" onclick="exportActiveChatHistory()" id="btnExportChat">📄 Export Active Chat (.txt)</button>
+            <button class="btn-setting-action" onclick="backupAllChats()" id="btnBackupAll">💾 Backup All Conversations (JSON)</button>
+            <button class="btn-setting-action" onclick="document.getElementById('restoreFileInput').click()">📤 Restore Backup</button>
+            <input type="file" id="restoreFileInput" accept=".json" class="sr-only" onchange="restoreAllChats(event)">
+          </div>
+
+          <!-- Session Log -->
+          <div class="settings-action-section">
+            <h4>Active Device Sessions</h4>
+            <div id="deviceSessionsContainer" class="device-sessions-list">
+              <!-- Dynamic session data -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ANALYTICS DRAWER ── -->
+      <div class="sidebar-drawer" id="analyticsDrawer">
+        <div class="drawer-header">
+          <button class="drawer-close-btn" onclick="closeDrawer('analyticsDrawer')" aria-label="Back">◀</button>
+          <h3>Performance Dashboard</h3>
+        </div>
+        <div class="drawer-content analytics-content">
+          <div class="analytic-card">
+            <div class="val" id="analyticsOnlineCount">0</div>
+            <div class="lbl">Users Online Right Now</div>
+          </div>
+          <div class="analytic-card">
+            <div class="val" id="analyticsFirestoreReads">0</div>
+            <div class="lbl">Firestore Reads Logged</div>
+          </div>
+          <div class="analytic-card">
+            <div class="val" id="analyticsMessageCount">0</div>
+            <div class="lbl">Total Messages Sent</div>
+          </div>
+          <div class="analytic-card">
+            <div class="val" id="analyticsStorageUsage">0 KB</div>
+            <div class="lbl">Estimated Media Storage</div>
+          </div>
+        </div>
+      </div>
+
     </aside>
 
     <!-- ════════ MAIN CHAT ════════ -->
@@ -42,26 +276,57 @@
       <!-- No chat selected -->
       <div class="no-chat" id="noChat">
         <div class="no-chat-icon">💬</div>
-        <h3>Welcome to ChatVibe</h3>
-        <p>Select a contact to start chatting, share files, and make audio or video calls.</p>
+        <h3>Welcome to ChatVibe Enterprise</h3>
+        <p>Select a conversation to start messaging, share files, make video calls, and collaborate in real-time.</p>
       </div>
 
       <!-- Chat header (hidden until chat selected) -->
       <div class="chat-header hidden" id="chatHeader">
-        <button class="back-btn" id="backBtn" title="Back to contacts">◀</button>
-        <div class="header-avatar" id="chatAvatar"></div>
-        <div class="header-info">
+        <button class="back-btn" id="backBtn" title="Back to contacts" aria-label="Back to contact list">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <div class="header-avatar" id="chatAvatar" onclick="openActiveChatInfoModal()"></div>
+        <div class="header-info" onclick="openActiveChatInfoModal()" style="cursor: pointer;">
           <div class="header-name" id="chatName"></div>
           <div class="header-status" id="chatStatus">Offline</div>
         </div>
-        <div class="header-actions">
-          <button id="audioCallBtn" title="Audio call">📞</button>
-          <button id="videoCallBtn" title="Video call">📹</button>
+
+        <!-- Search message bar inside active chat -->
+        <div class="header-chat-search hidden" id="headerChatSearch">
+          <input type="text" id="chatMessageSearchInput" placeholder="Search message text...">
+          <button onclick="toggleChatMessageSearch()" title="Close search">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div class="header-actions" id="headerActions">
+          <button id="searchChatMsgsBtn" onclick="toggleChatMessageSearch()" title="Search messages">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </button>
+          <button id="audioCallBtn" title="Audio call">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-2.2 2.2a15.045 15.045 0 0 1-6.59-6.59l2.2-2.21a.96.96 0 0 0 .25-1A11.36 11.36 0 0 1 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.59c0-.55-.45-1-1-1z"></path></svg>
+          </button>
+          <button id="videoCallBtn" title="Video call">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"></path></svg>
+          </button>
+          <button id="muteChatBtn" onclick="toggleMuteActiveChat()" title="Mute notifications">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          </button>
+          <button id="favoriteChatBtn" onclick="toggleFavoriteActiveChat()" title="Favorite conversation">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </button>
         </div>
       </div>
 
-      <!-- Messages -->
+      <!-- Messages area -->
       <div class="messages-area hidden" id="messagesArea">
+        <!-- Floating scroll to bottom -->
+        <button class="scroll-to-bottom-btn" id="scrollToBottomBtn" onclick="scrollMessagesToBottom(true)" aria-label="Scroll to bottom">
+          ↓ <span class="badge" id="scrollUnreadBadge"></span>
+        </button>
+
+        <!-- Dynamic list gets rendered here -->
+
         <div class="typing-indicator" id="typingIndicator">
           <div class="typing-dots">
             <span></span><span></span><span></span>
@@ -71,14 +336,78 @@
 
       <!-- Message input -->
       <div class="message-input-area hidden" id="messageInputArea">
+        <!-- Reply preview -->
+        <div class="input-reply-preview" id="inputReplyPreview">
+          <div class="reply-preview-content">
+            <div class="reply-preview-sender" id="replyPreviewSender"></div>
+            <div class="reply-preview-text" id="replyPreviewText"></div>
+          </div>
+          <button class="close-reply-btn" id="closeReplyBtn" title="Cancel reply">✕</button>
+        </div>
+
+        <!-- Edit preview -->
+        <div class="input-edit-preview" id="inputEditPreview">
+          <div class="edit-preview-content">
+            <div class="edit-preview-label">Editing Message</div>
+            <div class="edit-preview-text" id="editPreviewText"></div>
+          </div>
+          <button class="close-reply-btn" id="closeEditBtn" onclick="clearEditMessage()" title="Cancel edit">✕</button>
+        </div>
+
+        <!-- Image file pre-upload details preview -->
         <div class="file-preview-strip" id="filePreviewStrip"></div>
         <div class="upload-progress" id="uploadProgress">
           <div class="progress-bar" id="progressBar"></div>
         </div>
+
+        <!-- Recording waveform / voice message status -->
+        <div class="voice-recording-overlay" id="voiceRecordingOverlay">
+          <!-- Active Recording State -->
+          <div id="voiceRecordingActive" style="display: flex; align-items: center; width: 100%; gap: 12px;">
+            <span class="pulse-dot">🔴</span>
+            <span class="timer" id="voiceRecordingTime">0:00</span>
+            <canvas class="waveform-canvas" id="voiceWaveformCanvas" width="120" height="24"></canvas>
+            <div class="recording-actions">
+              <button class="btn-cancel-rec" onclick="cancelVoiceRecording()">✕ Cancel</button>
+              <button class="btn-pause-rec" id="voicePauseBtn" onclick="toggleVoiceRecordingPause()">⏸ Pause</button>
+              <button class="btn-stop-rec" id="voiceStopBtn" onclick="stopAndPreviewVoiceRecording()" style="background: rgba(255,255,255,0.1); color: var(--text-primary);">⏹ Done</button>
+            </div>
+          </div>
+
+          <!-- Preview & Confirm State -->
+          <div id="voiceRecordingPreview" class="hidden" style="align-items: center; width: 100%; gap: 12px;">
+            <button class="btn-preview-play" id="voicePreviewPlayBtn" onclick="toggleVoicePreviewPlayback()" style="background: var(--accent-solid); color: #fff; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">▶</button>
+            <div class="voice-preview-progress-wrapper" style="flex: 1; margin: 0 8px; position: relative;">
+              <input type="range" id="voicePreviewProgress" min="0" max="100" value="0" style="width: 100%; cursor: pointer;" oninput="seekVoicePreview(this.value)">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; opacity: 0.7; margin-top: 2px;">
+                <span id="voicePreviewCurrentTime">0:00</span>
+                <span id="voicePreviewDuration">0:00</span>
+              </div>
+            </div>
+            <div class="recording-actions">
+              <button class="btn-delete-rec" onclick="deleteVoicePreview()" style="background: rgba(255,82,82,0.15); color: var(--error);">🗑️ Discard</button>
+              <button class="btn-send-rec" onclick="sendVoicePreview()">➤ Send</button>
+            </div>
+            <audio id="voicePreviewAudio" class="sr-only"></audio>
+          </div>
+        </div>
+
+        <!-- Emoji Picker Drawer Container -->
+        <div class="emoji-picker-container" id="emojiPickerDrawer">
+          <!-- Loaded dynamically -->
+        </div>
+
         <div class="input-row">
           <div class="input-actions">
-            <button id="attachBtn" title="Attach file">📎</button>
-            <button id="cameraBtn" title="Take photo">📷</button>
+            <button id="emojiToggleBtn" onclick="toggleEmojiPicker()" title="Emoji keyboard">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+            </button>
+            <button id="attachBtn" title="Attach file">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+            </button>
+            <button id="cameraBtn" title="Take photo">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </button>
           </div>
           <div class="msg-input-wrapper">
             <textarea
@@ -88,13 +417,67 @@
               maxlength="5000"
             ></textarea>
           </div>
-          <button class="btn-send" id="sendBtn" title="Send">➤</button>
+          <div class="right-input-actions">
+            <button id="micBtn" onclick="startVoiceRecording()" title="Record voice message">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            </button>
+            <button class="btn-send hidden" id="sendBtn" title="Send">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+            </button>
+          </div>
         </div>
-        <input type="file" id="fileInput" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt" class="sr-only">
+        <input type="file" id="fileInput" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt,.mp3,.mp4,.apk" class="sr-only">
         <input type="file" id="cameraInput" capture="environment" accept="image/*" class="sr-only">
       </div>
 
     </main>
+  </div>
+
+  <!-- ════════ MODAL: CHAT INFO / GROUP DETAIL ════════ -->
+  <div class="info-modal-backdrop" id="chatInfoModal" onclick="closeActiveChatInfoModal(event)">
+    <div class="info-modal-card">
+      <button class="close-modal-btn" onclick="closeActiveChatInfoModal()">✕</button>
+      <div class="modal-body">
+        <div class="modal-avatar" id="modalChatAvatar">?</div>
+        <h3 id="modalChatName">Conversation Details</h3>
+        <p class="modal-desc" id="modalChatDescription"></p>
+
+        <!-- Group specific controls -->
+        <div class="group-admin-settings hidden" id="groupAdminSettings">
+          <h4>Group Settings</h4>
+          <div class="invite-link-row">
+            <span id="groupInviteLinkText">No invite link generated</span>
+            <button onclick="copyGroupInviteLink()">Copy Link</button>
+          </div>
+
+          <div class="add-members-section">
+            <label for="groupAddMembersSelect">Add Member</label>
+            <div class="add-member-row">
+              <select id="groupAddMembersSelect"></select>
+              <button onclick="addMemberToGroup()">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Participants list -->
+        <div class="modal-participants-section" id="modalParticipantsSection">
+          <h4>Participants (<span id="modalParticipantsCount">0</span>)</h4>
+          <div class="participants-list" id="modalParticipantsList"></div>
+        </div>
+
+        <!-- Starred Messages link -->
+        <div class="modal-action-row">
+          <button onclick="viewChatStarredMessages()" class="btn-modal-action">⭐ Starred Messages inside this chat</button>
+        </div>
+
+        <!-- Wallpaper & customization selection -->
+        <div class="modal-action-row">
+          <button onclick="blockActiveChatContact()" class="btn-modal-action block-btn" id="btnBlockContact">Block User</button>
+          <button onclick="reportActiveChatContact()" class="btn-modal-action report-btn">Report Conversation</button>
+          <button onclick="archiveActiveChat()" class="btn-modal-action" id="btnArchiveChat">Archive Chat</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ════════ CALL OVERLAY ════════ -->
@@ -141,17 +524,79 @@
   <!-- Image lightbox -->
   <div class="lightbox" id="lightbox">
     <button class="close-btn" id="closeLightbox">✕</button>
+    <div class="lightbox-controls">
+      <button onclick="rotateLightboxImage(-90)">🔄 Left</button>
+      <button onclick="rotateLightboxImage(90)">🔄 Right</button>
+      <button onclick="downloadLightboxImage()">⬇️ Download</button>
+    </div>
     <img id="lightboxImg" src="" alt="Full size image">
+  </div>
+
+  <!-- ── EMOJI REACTION CONTEXT POPUP ── -->
+  <div class="reaction-context-menu" id="reactionContextMenu">
+    <button onclick="addReactionFromMenu('👍')">👍</button>
+    <button onclick="addReactionFromMenu('❤️')">❤️</button>
+    <button onclick="addReactionFromMenu('😂')">😂</button>
+    <button onclick="addReactionFromMenu('😮')">😮</button>
+    <button onclick="addReactionFromMenu('😢')">😢</button>
+    <button onclick="addReactionFromMenu('🙏')">🙏</button>
+    <div class="context-actions">
+      <button onclick="triggerContextAction('reply')">Reply</button>
+      <button onclick="triggerContextAction('star')">Star</button>
+      <button onclick="triggerContextAction('copy')">Copy</button>
+      <button onclick="triggerContextAction('forward')">Forward</button>
+      <button id="btnContextEdit" onclick="triggerContextAction('edit')">Edit</button>
+      <button id="btnContextInfo" onclick="triggerContextAction('info')">Message Info</button>
+      <button id="btnContextDeleteMe" onclick="triggerContextAction('delete_me')">Delete for Me</button>
+      <button id="btnContextDeleteEveryone" onclick="triggerContextAction('delete_everyone')">Delete for Everyone</button>
+    </div>
+  </div>
+
+  <!-- ── MODAL: FORWARD MESSAGE CONTACT SELECTOR ── -->
+  <div class="info-modal-backdrop" id="forwardModal" onclick="closeForwardModal(event)">
+    <div class="info-modal-card">
+      <button class="close-modal-btn" onclick="closeForwardModal()">✕</button>
+      <div class="modal-body">
+        <h3>Forward Message</h3>
+        <p class="modal-desc">Select a conversation or contact to forward this message to:</p>
+        <div id="forwardContactsList" class="forward-contacts-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: MESSAGE INFO (DELIVERED / SEEN STATUS DETAILS) ── -->
+  <div class="info-modal-backdrop" id="messageInfoModal" onclick="closeMessageInfoModal(event)">
+    <div class="info-modal-card">
+      <button class="close-modal-btn" onclick="closeMessageInfoModal()">✕</button>
+      <div class="modal-body">
+        <h3>Message Info</h3>
+        <div id="messageInfoDetails" class="message-info-details">
+          <div class="info-status-row"><strong>Sent:</strong> <span id="infoMsgSentTime"></span></div>
+          <div class="info-status-section">
+            <h4>Delivered To</h4>
+            <div id="infoMsgDeliveredList" class="info-status-list"></div>
+          </div>
+          <div class="info-status-section">
+            <h4>Seen By</h4>
+            <div id="infoMsgSeenList" class="info-status-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Toast container -->
   <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Audio elements for sound effects -->
+  <audio id="msgNotificationSound" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==\"></audio>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 
   <!-- App scripts -->
   <script src="js/firebase-config.js"></script>

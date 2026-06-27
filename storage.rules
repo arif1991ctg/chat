@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Check if user is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Restrict files in chats directory
+    match /chats/{chatId}/{allPaths=**} {
+      // Allow reading if authenticated
+      allow read: if isAuthenticated();
+      // Allow writing if authenticated and under 10MB
+      allow write: if isAuthenticated() 
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Restrict files in profiles directory (for avatars and cover photos)
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024 // Profile files max 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
