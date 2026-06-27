@@ -31,7 +31,11 @@
   let callTimerInterval = null;
   let callStartTime = null;
   let callListenerUnsubscribe = null;
+  let activeCallUnsubscribe = null;
+  let callerCandidatesUnsubscribe = null;
+  let receiverCandidatesUnsubscribe = null;
   let ringtoneAudio = null;
+  let activeIncomingCallId = null;
 
   // ── Initialize call listener (listens for incoming calls) ──
   window.initCallListener = function () {
@@ -42,14 +46,21 @@
 
     callListenerUnsubscribe = db.collection('calls')
       .where('receiverId', '==', user.uid)
-      .where('status', '==', 'ringing')
       .onSnapshot((snapshot) => {
         snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const callData = { id: change.doc.id, ...change.doc.data() };
-            showIncomingCall(callData);
+          const callData = { id: change.doc.id, ...change.doc.data() };
+          if ((change.type === 'added' || change.type === 'modified') && callData.status === 'ringing' && callData.offer) {
+            if (activeIncomingCallId !== callData.id) {
+              showIncomingCall(callData);
+            }
+          } else if (activeIncomingCallId === callData.id && callData.status !== 'ringing') {
+            document.getElementById('incomingCall')?.classList.remove('show');
+            activeIncomingCallId = null;
           }
         });
+      }, (error) => {
+        console.error('[Call] Incoming listener failed:', error);
+        showToast('Call listener failed: ' + error.message, 'error');
       });
   };
 
@@ -59,6 +70,14 @@
     const contact = window._currentContact;
     if (!user || !contact) {
       showToast('Select a contact first', 'error');
+      return;
+    }
+    if (contact.isGroup) {
+      showToast('Calls are available in direct chats only', 'warning');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast('Microphone/camera is not available in this browser or connection', 'error');
       return;
     }
 
@@ -109,9 +128,7 @@
           remoteStream.addTrack(track);
         });
 
-        if (type === 'video') {
-          document.getElementById('remoteVideo').srcObject = remoteStream;
-        }
+        attachRemoteStream(remoteStream);
       };
 
       // ICE candidates — caller side
@@ -131,7 +148,7 @@
       });
 
       // Listen for answer
-      callRef.onSnapshot(async (snapshot) => {
+      activeCallUnsubscribe = callRef.onSnapshot(async (snapshot) => {
         const data = snapshot.data();
         if (!data) return;
 
@@ -154,11 +171,11 @@
       });
 
       // Listen for receiver ICE candidates
-      callRef.collection('receiverCandidates').onSnapshot((snapshot) => {
+      receiverCandidatesUnsubscribe = callRef.collection('receiverCandidates').onSnapshot((snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
           if (change.type === 'added') {
             const candidate = new RTCIceCandidate(change.doc.data());
-            await peerConnection.addIceCandidate(candidate);
+            if (peerConnection) await peerConnection.addIceCandidate(candidate);
           }
         });
       });
@@ -189,6 +206,7 @@
     const incomingEl = document.getElementById('incomingCall');
     const callerName = callData.callerPhone || 'Unknown';
     const initials = window.getInitials ? getInitials(callerName) : '??';
+    activeIncomingCallId = callData.id;
 
     document.getElementById('callerAvatar').textContent = initials;
     document.getElementById('callerName').textContent = callerName;
@@ -201,6 +219,7 @@
     // Accept button
     document.getElementById('acceptCallBtn').onclick = () => {
       incomingEl.classList.remove('show');
+      activeIncomingCallId = null;
       stopRingtone();
       acceptCall(callData);
     };
@@ -208,6 +227,7 @@
     // Decline button
     document.getElementById('declineCallBtn').onclick = () => {
       incomingEl.classList.remove('show');
+      activeIncomingCallId = null;
       stopRingtone();
       db.collection('calls').doc(callData.id).update({ status: 'declined' });
     };
@@ -215,6 +235,7 @@
     // Auto-dismiss after 45 seconds
     setTimeout(() => {
       incomingEl.classList.remove('show');
+      if (activeIncomingCallId === callData.id) activeIncomingCallId = null;
     }, 45000);
   }
 
@@ -225,6 +246,11 @@
     stopRingtone();
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('Microphone/camera is not available in this browser or connection', 'error');
+        return;
+      }
+
       const constraints = {
         audio: true,
         video: callData.type === 'video'
@@ -258,9 +284,7 @@
           remoteStream.addTrack(track);
         });
 
-        if (callData.type === 'video') {
-          document.getElementById('remoteVideo').srcObject = remoteStream;
-        }
+        attachRemoteStream(remoteStream);
       };
 
       // ICE candidates — receiver side
@@ -286,11 +310,11 @@
       });
 
       // Listen for caller ICE candidates
-      callDoc.collection('callerCandidates').onSnapshot((snapshot) => {
+      callerCandidatesUnsubscribe = callDoc.collection('callerCandidates').onSnapshot((snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
           if (change.type === 'added') {
             const candidate = new RTCIceCandidate(change.doc.data());
-            await peerConnection.addIceCandidate(candidate);
+            if (peerConnection) await peerConnection.addIceCandidate(candidate);
           }
         });
       });
@@ -299,7 +323,7 @@
       onCallConnected(callerInfo, callData.type);
 
       // Listen for call end
-      callDoc.onSnapshot((snapshot) => {
+      activeCallUnsubscribe = callDoc.onSnapshot((snapshot) => {
         const data = snapshot.data();
         if (data && data.status === 'ended') {
           endCallCleanup();
@@ -340,6 +364,15 @@
     }, 1000);
   }
 
+  function attachRemoteStream(stream) {
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (!remoteVideo) return;
+    if (remoteVideo.srcObject !== stream) {
+      remoteVideo.srcObject = stream;
+    }
+    remoteVideo.play().catch(() => {});
+  }
+
   // ── Show call UI ──
   function showCallUI(contact, type, statusText) {
     const displayName = contact.displayName || contact.phoneNumber || 'Unknown';
@@ -367,6 +400,18 @@
 
   function endCallCleanup() {
     stopRingtone();
+    if (activeCallUnsubscribe) {
+      activeCallUnsubscribe();
+      activeCallUnsubscribe = null;
+    }
+    if (callerCandidatesUnsubscribe) {
+      callerCandidatesUnsubscribe();
+      callerCandidatesUnsubscribe = null;
+    }
+    if (receiverCandidatesUnsubscribe) {
+      receiverCandidatesUnsubscribe();
+      receiverCandidatesUnsubscribe = null;
+    }
     // Stop media tracks
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
@@ -396,6 +441,7 @@
     document.getElementById('callOverlay').classList.remove('show');
     document.getElementById('videoContainer').classList.remove('show');
     document.getElementById('incomingCall').classList.remove('show');
+    activeIncomingCallId = null;
 
     // Clear video elements
     document.getElementById('localVideo').srcObject = null;

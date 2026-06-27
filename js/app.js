@@ -388,7 +388,11 @@
 
   // ── Register Service Worker & FCM ──
   function registerPushNotifications(user) {
-    if ('serviceWorker' in navigator && messaging) {
+    if (!('serviceWorker' in navigator) || !messaging || !('Notification' in window)) {
+      console.warn('[FCM] Push notifications are not supported in this browser');
+      return;
+    }
+
       navigator.serviceWorker.register('firebase-messaging-sw.js')
         .then((registration) => {
           console.log('[FCM] ServiceWorker registered with scope:', registration.scope);
@@ -401,17 +405,33 @@
                 serviceWorkerRegistration: registration
               }).then((token) => {
                 if (token) {
-                  // Save FCM Token to Firestore user records
-                  db.collection('users').doc(user.uid).update({ fcmToken: token });
+                  const sessionId = window.getCurrentSessionId ? window.getCurrentSessionId() : 'default';
+                  db.collection('users').doc(user.uid).set({
+                    fcmToken: token,
+                    notificationPermission: permission,
+                    [`fcmTokens.${sessionId}`]: token,
+                    fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  }, { merge: true });
                 }
               }).catch((e) => {
                 console.warn('[FCM] Token request failed:', e);
               });
+            } else {
+              db.collection('users').doc(user.uid).set({
+                notificationPermission: permission
+              }, { merge: true }).catch(() => {});
             }
           });
         }).catch((err) => {
           console.error('[SW] ServiceWorker registration failed:', err);
         });
+
+      messaging.onMessage((payload) => {
+        const title = payload.notification?.title || 'New message';
+        const body = payload.notification?.body || 'You received a new message.';
+        showToast(`${title}: ${body}`, 'info');
+        document.getElementById('msgNotificationSound')?.play().catch(() => {});
+      });
 
       // Listen for message events coming from Service Worker
       navigator.serviceWorker.addEventListener('message', (event) => {
@@ -424,7 +444,6 @@
           }
         }
       });
-    }
   }
 
   // ── Custom theme presets application ──

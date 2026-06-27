@@ -37,6 +37,8 @@
   let activeChatDetails = null; // Current chat document data
   let flushInProgress = false;
   const PRESENCE_STALE_MS = 90 * 1000;
+  let latestContactMap = new Map();
+  let latestChatSnapshot = null;
 
   // Audio Playbacks speed mapping
   let voiceSpeedRates = {}; // map of [msgId]: speedMultiplier
@@ -226,99 +228,102 @@
 
     if (contactsUnsubscribe) return; // Already listening
 
-    // Listen to users
     contactsUnsubscribe = db.collection('users')
-      .onSnapshot(async (snapshot) => {
+      .onSnapshot((snapshot) => {
         incrementFirestoreReads(snapshot.size);
         const contactMap = new Map();
         snapshot.forEach((doc) => {
           const data = { uid: doc.id, ...doc.data() };
           if (doc.id === user.uid) {
-            // Update my local storage details
             window._myDetails = data;
             return;
           }
           contactMap.set(doc.id, data);
         });
+        latestContactMap = contactMap;
+        rebuildContactsFromSnapshots(user);
 
-        if (chatsUnsubscribe) {
-          chatsUnsubscribe();
-          chatsUnsubscribe = null;
+        if (!chatsUnsubscribe) {
+          chatsUnsubscribe = db.collection('chats')
+            .where('participants', 'array-contains', user.uid)
+            .onSnapshot((chatSnapshot) => {
+              incrementFirestoreReads(chatSnapshot.size);
+              latestChatSnapshot = chatSnapshot;
+              rebuildContactsFromSnapshots(user);
+            }, (error) => {
+              console.error('[Chat] Error loading chats:', error);
+            });
         }
-
-        // Listen to groups and DMs that current user is a participant of
-        chatsUnsubscribe = db.collection('chats')
-          .where('participants', 'array-contains', user.uid)
-          .onSnapshot((chatSnapshot) => {
-            incrementFirestoreReads(chatSnapshot.size);
-            const chatsList = [];
-
-            chatSnapshot.forEach((doc) => {
-              const data = { chatId: doc.id, ...doc.data() };
-
-              if (data.isGroup) {
-                // Group chat object
-                chatsList.push({
-                  uid: doc.id,
-                  chatId: doc.id,
-                  displayName: data.name,
-                  phoneNumber: 'Group Chat',
-                  isGroup: true,
-                  avatar: data.avatar,
-                  ...data
-                });
-              } else {
-                // DM chat object
-                const otherUid = data.participants.find(p => p !== user.uid);
-                const otherUser = contactMap.get(otherUid);
-                if (otherUser) {
-                  chatsList.push({
-                    uid: otherUid,
-                    chatId: doc.id,
-                    isGroup: false,
-                    displayName: otherUser.displayName || otherUser.phoneNumber,
-                    phoneNumber: otherUser.phoneNumber,
-                    online: otherUser.online,
-                    status: otherUser.status,
-                    lastSeen: otherUser.lastSeen,
-                    privacySettings: otherUser.privacySettings,
-                    blockedUsers: otherUser.blockedUsers,
-                    ...data
-                  });
-                }
-              }
-            });
-
-            // Merge individual contacts who don't have conversations yet
-            contactMap.forEach((u) => {
-              const hasChat = chatsList.some(c => !c.isGroup && c.uid === u.uid);
-              if (!hasChat) {
-                chatsList.push({
-                  uid: u.uid,
-                  chatId: getChatId(user.uid, u.uid),
-                  isGroup: false,
-                  displayName: u.displayName || u.phoneNumber,
-                  phoneNumber: u.phoneNumber,
-                  online: u.online,
-                  status: u.status,
-                  lastSeen: u.lastSeen,
-                  privacySettings: u.privacySettings,
-                  blockedUsers: u.blockedUsers
-                });
-              }
-            });
-
-            cachedContacts = chatsList;
-
-            // Hide skeleton loading
-            document.getElementById('contactsSkeleton')?.classList.add('hidden');
-            renderContacts(cachedContacts, user.uid);
-            updateAnalyticsDashboard();
-          });
       }, (error) => {
         console.error('[Chat] Error loading contacts:', error);
       });
   };
+
+  function rebuildContactsFromSnapshots(user) {
+    const chatsList = [];
+
+    if (latestChatSnapshot) {
+      latestChatSnapshot.forEach((doc) => {
+        const data = { chatId: doc.id, ...doc.data() };
+
+        if (data.isGroup) {
+          chatsList.push({
+            uid: doc.id,
+            chatId: doc.id,
+            hasConversation: true,
+            displayName: data.name,
+            phoneNumber: 'Group Chat',
+            isGroup: true,
+            avatar: data.avatar,
+            ...data
+          });
+        } else {
+          const otherUid = data.participants.find(p => p !== user.uid);
+          const otherUser = latestContactMap.get(otherUid);
+          if (otherUser) {
+            chatsList.push({
+              uid: otherUid,
+              chatId: doc.id,
+              hasConversation: true,
+              isGroup: false,
+              displayName: otherUser.displayName || otherUser.phoneNumber,
+              phoneNumber: otherUser.phoneNumber,
+              online: otherUser.online,
+              status: otherUser.status,
+              lastSeen: otherUser.lastSeen,
+              privacySettings: otherUser.privacySettings,
+              blockedUsers: otherUser.blockedUsers,
+              ...data
+            });
+          }
+        }
+      });
+    }
+
+    latestContactMap.forEach((u) => {
+      const hasChat = chatsList.some(c => !c.isGroup && c.uid === u.uid);
+      if (!hasChat) {
+        chatsList.push({
+          uid: u.uid,
+          chatId: getChatId(user.uid, u.uid),
+          hasConversation: false,
+          isGroup: false,
+          displayName: u.displayName || u.phoneNumber,
+          phoneNumber: u.phoneNumber,
+          online: u.online,
+          status: u.status,
+          lastSeen: u.lastSeen,
+          privacySettings: u.privacySettings,
+          blockedUsers: u.blockedUsers
+        });
+      }
+    });
+
+    cachedContacts = chatsList;
+    document.getElementById('contactsSkeleton')?.classList.add('hidden');
+    renderContacts(cachedContacts, user.uid);
+    updateAnalyticsDashboard();
+  }
 
   window.filterContacts = function () {
     const user = getCurrentUser();
@@ -404,10 +409,10 @@
             ${isPinned ? '<span class="pinned-badge" title="Pinned conversation">📌</span>' : ''}
             ${isFavorite ? '<span class="favorite-badge" title="Favorite">★</span>' : ''}
           </div>
-          <div class="contact-last-msg" id="lastMsg_${chat.chatId}">Loading...</div>
+          <div class="contact-last-msg" id="lastMsg_${chat.chatId}">${getContactPreviewText(chat)}</div>
         </div>
         <div class="contact-meta">
-          <div class="contact-time" id="lastTime_${chat.chatId}"></div>
+          <div class="contact-time" id="lastTime_${chat.chatId}">${chat.lastMessageTime ? formatTime(chat.lastMessageTime) : ''}</div>
           <div class="contact-unread" id="unread_${chat.chatId}"></div>
         </div>
       `;
@@ -417,9 +422,16 @@
       });
       contactsList.appendChild(item);
 
-      // Render previews and unread badges
-      loadLastMessage(chat.chatId, myUid);
+      if (chat.hasConversation) {
+        loadUnreadCount(chat.chatId, myUid);
+      }
     });
+  }
+
+  function getContactPreviewText(chat) {
+    if (!chat.hasConversation) return 'Start a conversation';
+    if (chat.lastMessage) return chat.lastMessage;
+    return 'Start a conversation';
   }
 
   function loadLastMessage(chatId, myUid) {

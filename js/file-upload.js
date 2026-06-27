@@ -91,6 +91,11 @@
 
   // ── Upload a file to Firebase Storage ──
   window.uploadFile = async function (file, chatId) {
+    if (!storage) {
+      showToast('File upload is not available. Firebase Storage did not load.', 'error');
+      return null;
+    }
+
     // Compress first if image
     let uploadTarget = file;
     if (file && file.type && file.type.startsWith('image/')) {
@@ -114,7 +119,19 @@
       const path = `chats/${chatId}/${timestamp}_${safeName}`;
       const ref = storage.ref(path);
 
-      const uploadTask = ref.put(uploadTarget);
+      const metadata = {
+        contentType: uploadTarget.type || 'application/octet-stream'
+      };
+      const uploadTask = ref.put(uploadTarget, metadata);
+      let settled = false;
+      const uploadTimeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        uploadTask.cancel();
+        if (progressEl) progressEl.classList.remove('show');
+        if (progressBar) progressBar.style.width = '0%';
+        reject(new Error('Upload timed out. Check Firebase Storage rules and connection.'));
+      }, 60000);
 
       // Track progress in UI
       const progressEl = document.getElementById('uploadProgress');
@@ -127,12 +144,19 @@
           if (progressBar) progressBar.style.width = pct + '%';
         },
         (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(uploadTimeout);
           console.error('[Upload] Error:', error);
           if (progressEl) progressEl.classList.remove('show');
+          if (progressBar) progressBar.style.width = '0%';
           showToast('Upload failed: ' + uploadTarget.name, 'error');
           reject(error);
         },
         async () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(uploadTimeout);
           try {
             const url = await uploadTask.snapshot.ref.getDownloadURL();
             if (progressEl) progressEl.classList.remove('show');
@@ -143,6 +167,8 @@
 
             resolve(url);
           } catch (error) {
+            if (progressEl) progressEl.classList.remove('show');
+            if (progressBar) progressBar.style.width = '0%';
             reject(error);
           }
         }
@@ -165,13 +191,18 @@
       showToast('Audio recording is not supported in this browser', 'error');
       return;
     }
+    if (typeof MediaRecorder === 'undefined') {
+      showToast('Voice recording is not supported in this browser', 'error');
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
       recordStartTime = Date.now();
 
-      mediaRecorder = new MediaRecorder(stream);
+      const mimeType = getSupportedAudioMimeType();
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           audioChunks.push(e.data);
@@ -204,6 +235,7 @@
 
   let recordedAudioBlob = null;
   let voicePreviewInterval = null;
+  let voiceSendInProgress = false;
 
   window.toggleVoiceRecordingPause = function () {
     if (!mediaRecorder) return;
@@ -234,7 +266,8 @@
     if (!mediaRecorder) return;
 
     mediaRecorder.onstop = () => {
-      recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const mimeType = mediaRecorder.mimeType || getSupportedAudioMimeType() || 'audio/webm';
+      recordedAudioBlob = new Blob(audioChunks, { type: mimeType });
       const audioUrl = URL.createObjectURL(recordedAudioBlob);
 
       const previewAudio = document.getElementById('voicePreviewAudio');
@@ -326,20 +359,51 @@
   };
 
   window.sendVoicePreview = async function () {
-    if (!recordedAudioBlob) return;
+    if (!recordedAudioBlob || voiceSendInProgress) return;
+    const user = getCurrentUser();
+    if (!user) {
+      showToast('Sign in again before sending voice messages', 'error');
+      return;
+    }
 
-    const voiceFile = new File([recordedAudioBlob], `voice_${Date.now()}.webm`, {
-      type: 'audio/webm',
+    const ext = recordedAudioBlob.type.includes('mp4') ? 'm4a' : (recordedAudioBlob.type.includes('ogg') ? 'ogg' : 'webm');
+    const voiceFile = new File([recordedAudioBlob], `voice_${Date.now()}.${ext}`, {
+      type: recordedAudioBlob.type || 'audio/webm',
       lastModified: Date.now()
     });
 
     const currentChatId = getCurrentChatId();
-    if (currentChatId && window.sendFileMessage) {
-      showToast('Uploading voice message...', 'info');
-      await window.sendFileMessage(voiceFile, getCurrentUser().uid, currentChatId, window._replyTarget);
+    if (!currentChatId || !window.sendFileMessage) {
+      showToast('Select a conversation before sending voice messages', 'error');
+      return;
     }
 
-    cleanupAudioRecording();
+    const sendBtn = document.querySelector('.btn-send-rec');
+    voiceSendInProgress = true;
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending...';
+    }
+
+    try {
+      showToast('Uploading voice message...', 'info');
+      const sent = await window.sendFileMessage(voiceFile, user.uid, currentChatId, window._replyTarget);
+      if (sent) {
+        cleanupAudioRecording();
+        showToast('Voice message sent', 'success');
+      } else {
+        showToast('Voice message could not be sent. Try again.', 'error');
+      }
+    } catch (error) {
+      console.error('[Voice] Send failed:', error);
+      showToast('Voice message failed: ' + error.message, 'error');
+    } finally {
+      voiceSendInProgress = false;
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+      }
+    }
   };
 
   window.cancelVoiceRecording = function () {
@@ -388,6 +452,16 @@
   function parseTimeInputToSeconds(timeStr) {
     const parts = timeStr.split(':');
     return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  }
+
+  function getSupportedAudioMimeType() {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4'
+    ];
+    return types.find(type => MediaRecorder.isTypeSupported(type)) || '';
   }
 
   // Draw mic volume waveform on canvas
